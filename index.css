@@ -2487,15 +2487,9 @@
 
   .home-dashboard-preview {
     top: 520px;
-    width: 90%;
-    border-width: 10px;
-    border-radius: 45px;
   }
 
-  .home-outline {
-    border-width: 10px;
-    border-radius: 35px;
-  }
+  .home-outline {}
 
   .home-image {
     width: 100%;
