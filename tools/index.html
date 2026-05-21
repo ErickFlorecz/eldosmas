@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch & Streamlabs Overlay Dashboard</title>
+    <!-- Tailwind CSS para diseño rápido y moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuración e Importación de fuentes de Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700;900&display=swap"
+        rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .heading-font {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Animación para aparición de alertas */
+        @keyframes alertEntry {
+            0% {
+                transform: translateY(-50px) scale(0.8);
+                opacity: 0;
+            }
+
+            15% {
+                transform: translateY(0) scale(1.05);
+                opacity: 1;
+            }
+
+            17% {
+                transform: translateY(0) scale(1);
+            }
+
+            85% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(-30px) scale(0.9);
+                opacity: 0;
+            }
+        }
+
+        .animate-alert {
+            animation: alertEntry 6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* Barra de scroll personalizada para el chat */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(139, 92, 246, 0.6);
+        }
+    </style>
+</head>
+
+<body class="h-full overflow-hidden flex flex-col">
+
+    <!-- Contenedor Principal -->
+    <div class="flex-1 flex flex-col md:flex-row h-full overflow-hidden relative">
+
+        <!-- ============================================== -->
+        <!-- PANEL DE CONTROL / AJUSTES (Izquierda)         -->
+        <!-- ============================================== -->
+        <div id="settings-panel"
+            class="w-full md:w-96 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 p-6 flex flex-col justify-between overflow-y-auto transition-all duration-300 z-10 shrink-0">
+            <div>
+                <!-- Encabezado del Panel -->
+                <div class="flex items-center space-x-3 mb-6">
+                    <div class="h-3 w-3 rounded-full bg-violet-500 animate-pulse"></div>
+                    <h1
+                        class="heading-font text-xl font-bold tracking-tight bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
+                        Stream Center Setup
+                    </h1>
+                </div>
+
+                <!-- Formulario de Configuración -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Canal de
+                            Twitch</label>
+                        <div class="relative">
+                            <input type="text" id="twitch-channel-input" placeholder="ej. eldosmas, midudev"
+                                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-1">El canal del que leeremos el chat de texto.</p>
+                    </div>
+
+                    <div>
+                        <label
+                            class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex justify-between">
+                            <span>Streamlabs Socket Token</span>
+                            <a href="https://streamlabs.com/dashboard#/settings/api-settings" target="_blank"
+                                class="text-violet-400 hover:underline normal-case text-[10px]">¿Dónde lo encuentro?</a>
+                        </label>
+                        <input type="password" id="streamlabs-token-input" placeholder="Opcional. Empieza por wss://..."
+                            class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                        <p class="text-[11px] text-slate-500 mt-1">Opcional. Tu token de API de Streamlabs para conectar
+                            alertas en tiempo real.</p>
+                    </div>
+
+                    <!-- NUEVO CAMPO MULTIPLE: BLERP OVERLAYS -->
+                    <div>
+                        <label
+                            class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex justify-between">
+                            <span>Blerp Overlays (Múltiples)</span>
+                            <span class="text-violet-400 text-[10px] uppercase font-bold">Opcional</span>
+                        </label>
+
+                        <!-- Contenedor de Inputs dinámicos -->
+                        <div id="blerp-urls-container" class="space-y-2">
+                            <!-- Los campos de URL se generarán aquí dinámicamente con JS -->
+                        </div>
+
+                        <!-- Botón para agregar más campos -->
+                        <button type="button" onclick="addBlerpInput()"
+                            class="mt-2.5 w-full bg-slate-850 hover:bg-slate-800 text-violet-400 hover:text-violet-300 border border-slate-700/60 rounded-lg py-2 px-3 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]">
+                            <span>➕ Agregar otra URL de Blerp</span>
+                        </button>
+                        <p class="text-[11px] text-slate-500 mt-1.5">Tus enlaces "Browser Source" de Blerp. Puedes
+                            agregar varios perfiles de sonido.</p>
+                    </div>
+
+                    <!-- Botones de Acción de Conexión -->
+                    <div class="pt-2 flex gap-2">
+                        <button id="btn-connect" onclick="initializeConnections()"
+                            class="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold py-2.5 px-4 rounded-lg text-sm shadow-lg shadow-indigo-900/20 transition-all active:scale-95">
+                            Conectar Todo
+                        </button>
+                        <button id="btn-disconnect" onclick="disconnectAll()" disabled
+                            class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-semibold py-2.5 px-3 rounded-lg text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            Apagar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Estado de las conexiones actuales -->
+                <div class="mt-6 p-4 rounded-xl bg-slate-950/50 border border-slate-800 space-y-3">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Estados de Conexión</h3>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Twitch IRC Chat</span>
+                        <div class="flex items-center space-x-1.5">
+                            <span id="twitch-status-dot" class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+                            <span id="twitch-status-text" class="font-medium text-slate-300">Desconectado</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Streamlabs Socket</span>
+                        <div class="flex items-center space-x-1.5">
+                            <span id="streamlabs-status-dot" class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+                            <span id="streamlabs-status-text" class="font-medium text-slate-300">Desconectado</span>
+                        </div>
+                    </div>
+                    <!-- ESTADO DILUIDO DE BLERP MULTIPLE -->
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Blerp Overlays</span>
+                        <div class="flex items-center space-x-1.5">
+                            <span id="blerp-status-dot" class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+                            <span id="blerp-status-text" class="font-medium text-slate-300">Desconectado</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulador de Alertas (Herramientas de Testeo) -->
+                <div class="mt-6">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Simulador de Alertas
+                        (Prueba)</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="simulateAlert('follow')"
+                            class="bg-violet-950/40 hover:bg-violet-900/60 border border-violet-800/60 text-violet-300 text-xs py-2 px-3 rounded-lg font-medium transition-all active:scale-95">
+                            💜 Seguidor
+                        </button>
+                        <button onclick="simulateAlert('subscription')"
+                            class="bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 text-xs py-2 px-3 rounded-lg font-medium transition-all active:scale-95">
+                            👑 Suscriptor
+                        </button>
+                        <button onclick="simulateAlert('donation')"
+                            class="bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 text-xs py-2 px-3 rounded-lg font-medium transition-all active:scale-95">
+                            💵 Donación
+                        </button>
+                        <button onclick="simulateAlert('bits')"
+                            class="bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-800/60 text-cyan-300 text-xs py-2 px-3 rounded-lg font-medium transition-all active:scale-95">
+                            💎 Bits
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Informativo del Panel -->
+            <div class="mt-6 pt-4 border-t border-slate-800 space-y-3">
+                <button onclick="toggleOverlayMode()"
+                    class="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium py-2 px-4 rounded-lg text-xs transition-all flex items-center justify-center space-x-2">
+                    <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span>Modo Overlay (Ocultar Todo)</span>
+                </button>
+                <div class="text-[10px] text-slate-500 text-center">
+                    Guarda la url de esta página en tu OBS.<br>La config se guarda en tu navegador.
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- AREA CENTRAL DE OVERLAYS / CHAT (Derecha)       -->
+        <!-- ============================================== -->
+        <div class="flex-1 flex flex-col h-full bg-slate-950/90 relative overflow-hidden">
+
+            <!-- CONTENEDOR INTEGRADO DE IFRAMES DE BLERP -->
+            <div id="blerp-iframes-container" class="absolute inset-0 w-full h-full pointer-events-none hidden z-30">
+                <!-- Se crearán iframes de Blerp dinámicamente aquí -->
+            </div>
+
+            <!-- Botón de retorno flotante (Sólo visible en Modo Overlay) -->
+            <button id="btn-exit-overlay" onclick="toggleOverlayMode()"
+                class="hidden absolute top-4 left-4 z-50 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold py-1.5 px-3 rounded-md transition-all backdrop-blur-md opacity-30 hover:opacity-100">
+                ⬅ Volver a Ajustes
+            </button>
+
+            <!-- ZONA DE ALERTA FLOTANTE (Centrada arriba) -->
+            <div class="absolute inset-x-0 top-16 z-40 flex justify-center px-4 pointer-events-none">
+                <div id="alert-container"
+                    class="hidden pointer-events-auto transform transition-all duration-300 max-w-lg w-full">
+                    <!-- El contenido de la alerta se inyecta dinámicamente aquí por JS -->
+                </div>
+            </div>
+
+            <!-- VISTA DEL CHAT -->
+            <div class="flex-1 flex flex-col h-full overflow-hidden p-6">
+                <!-- Header del Chat (Solo visible en modo Panel) -->
+                <div id="chat-header"
+                    class="flex items-center justify-between mb-4 border-b border-slate-800/80 pb-3 shrink-0">
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-5 h-5 text-violet-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+                        </svg>
+                        <h2 class="heading-font font-bold text-md text-slate-200">Chat en Vivo</h2>
+                    </div>
+                    <span id="chat-count-badge"
+                        class="bg-slate-800 text-slate-400 text-xs px-2.5 py-1 rounded-full font-medium">0
+                        mensajes</span>
+                </div>
+
+                <!-- Historial de Mensajes de Texto -->
+                <div id="chat-box" class="flex-1 overflow-y-auto space-y-3.5 pr-2 flex flex-col justify-end">
+                    <!-- Mensaje de bienvenida inicial -->
+                    <div class="p-4 rounded-xl bg-violet-950/20 border border-violet-900/30 text-slate-300 max-w-2xl text-sm"
+                        id="welcome-message">
+                        <span class="font-bold text-violet-400">💡 Instrucciones rápidas:</span>
+                        <p class="mt-1">Introduce el nombre de tu canal en el panel izquierdo y haz clic en
+                            <strong>Conectar Todo</strong>. El chat de Twitch se actualizará aquí instantáneamente.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ============================================== -->
+    <!-- LOGICA JAVASCRIPT - CONEXIONES Y LOGICA        -->
+    <!-- ============================================== -->
+    <script>
+        let twitchWS = null;
+        let streamlabsWS = null;
+        let currentChannel = '';
+        let messageCount = 0;
+        let isOverlayMode = false;
+
+        // Helper seguro para localStorage para evitar errores de seguridad en entornos sandbox (iframes)
+        const safeStorage = {
+            getItem(key) {
+                try {
+                    return localStorage.getItem(key);
+                } catch (e) {
+                    console.warn("Storage access restricted. Configurations won't be saved.");
+                    return null;
+                }
+            },
+            setItem(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (e) {
+                    // Silencioso, no rompe el flujo principal
+                }
+            }
+        };
+
+        // Generar dinámicamente un campo de entrada para URL de Blerp
+        function addBlerpInput(value = '') {
+            const container = document.getElementById('blerp-urls-container');
+
+            const div = document.createElement('div');
+            div.className = "flex items-center gap-2 blerp-url-row";
+            div.innerHTML = `
+                <input type="text" placeholder="https://obs.blerp.com/pwn/..." value="${escapeHTML(value)}"
+                    class="blerp-url-item-input flex-1 bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                <button type="button" onclick="removeBlerpInput(this)" 
+                    class="bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 hover:text-red-100 p-2.5 rounded-lg transition-all active:scale-95 shrink-0" 
+                    title="Eliminar URL">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        // Eliminar un campo de entrada de Blerp
+        function removeBlerpInput(button) {
+            const row = button.closest('.blerp-url-row');
+            if (row) {
+                row.remove();
+            }
+        }
+
+        // Variables de persistencia local (Cargar inputs al iniciar de forma segura)
+        window.addEventListener('load', () => {
+            const savedChannel = safeStorage.getItem('twitch_channel');
+            const savedToken = safeStorage.getItem('streamlabs_token');
+            const savedBlerpsJson = safeStorage.getItem('blerp_urls');
+
+            if (savedChannel) document.getElementById('twitch-channel-input').value = savedChannel;
+            if (savedToken) document.getElementById('streamlabs-token-input').value = savedToken;
+
+            // Cargar múltiples Blerp URLs guardadas
+            if (savedBlerpsJson) {
+                try {
+                    const urls = JSON.parse(savedBlerpsJson);
+                    if (Array.isArray(urls) && urls.length > 0) {
+                        urls.forEach(url => addBlerpInput(url));
+                    } else {
+                        addBlerpInput(); // Por defecto añade un campo vacío
+                    }
+                } catch (e) {
+                    // Fallback de compatibilidad: si existía una sola url guardada antigua
+                    const legacyBlerp = safeStorage.getItem('blerp_url');
+                    addBlerpInput(legacyBlerp || '');
+                }
+            } else {
+                // Fallback de compatibilidad antiguo
+                const legacyBlerp = safeStorage.getItem('blerp_url');
+                addBlerpInput(legacyBlerp || '');
+            }
+        });
+
+        // Web Audio API: Generación de un tono de alerta limpio sin depender de audios externos
+        function playAlertChime(type) {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                const now = ctx.currentTime;
+
+                // Definimos frecuencias según el tipo de alerta para dar variedad
+                let f1 = 523.25; // C5 por defecto
+                let f2 = 659.25; // E5
+                let f3 = 783.99; // G5
+
+                if (type === 'subscription') {
+                    f1 = 587.33; // D5
+                    f2 = 739.99; // F#5
+                    f3 = 880.00; // A5
+                } else if (type === 'donation') {
+                    f1 = 659.25; // E5
+                    f2 = 830.61; // G#5
+                    f3 = 987.77; // B5
+                } else if (type === 'bits') {
+                    f1 = 783.99; // G5
+                    f2 = 987.77; // B5
+                    f3 = 1174.66; // D6
+                }
+
+                // Generamos 3 notas consecutivas (efecto Arpegio ascendente)
+                // Nota 1
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(f1, now);
+                gain1.gain.setValueAtTime(0.12, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.6);
+
+                // Nota 2 (A los 120ms)
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(f2, now + 0.12);
+                gain2.gain.setValueAtTime(0.12, now + 0.12);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.72);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.12);
+                osc2.stop(now + 0.72);
+
+                // Nota 3 (A los 240ms)
+                const osc3 = ctx.createOscillator();
+                const gain3 = ctx.createGain();
+                osc3.type = 'triangle'; // Un timbre un poco más brillante al final
+                osc3.frequency.setValueAtTime(f3, now + 0.24);
+                gain3.gain.setValueAtTime(0.15, now + 0.24);
+                gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.94);
+                osc3.connect(gain3);
+                gain3.connect(ctx.destination);
+                osc3.start(now + 0.24);
+                osc3.stop(now + 0.94);
+
+            } catch (e) {
+                console.warn('El navegador bloqueó la reproducción automática de audio.', e);
+            }
+        }
+
+        // Procesamiento en tiempo real de los mensajes crudos del chat de Twitch (IRC Parser)
+        function handleTwitchWSMessage(event) {
+            const rawData = event.data;
+            const lines = rawData.split('\r\n');
+
+            for (let line of lines) {
+                if (!line) continue;
+
+                // Responder al PING de Twitch para evitar desconexiones automáticas (Keep-Alive)
+                if (line.startsWith('PING')) {
+                    twitchWS.send('PONG :tmi.twitch.tv');
+                    continue;
+                }
+
+                // Identificar si la línea es un mensaje de chat (PRIVMSG)
+                if (line.includes(' PRIVMSG ')) {
+                    let tags = {};
+                    let remaining = line;
+
+                    // Extraer los metadatos de los tags de Twitch (@color=...;display-name=...)
+                    if (remaining.startsWith('@')) {
+                        const spaceIndex = remaining.indexOf(' ');
+                        const tagsStr = remaining.substring(1, spaceIndex);
+                        remaining = remaining.substring(spaceIndex + 1);
+
+                        tagsStr.split(';').forEach(pair => {
+                            const [key, val] = pair.split('=');
+                            tags[key] = val ? decodeURIComponent(val) : '';
+                        });
+                    }
+
+                    // Extraer el nombre de usuario desde el identificador de IRC si no hay display-name
+                    let username = 'Usuario';
+                    if (remaining.startsWith(':')) {
+                        const spaceIndex = remaining.indexOf(' ');
+                        const hostmask = remaining.substring(1, spaceIndex);
+                        remaining = remaining.substring(spaceIndex + 1);
+
+                        const exclIndex = hostmask.indexOf('!');
+                        if (exclIndex !== -1) {
+                            username = hostmask.substring(0, exclIndex);
+                        }
+                    }
+
+                    // Priorizar el nombre para mostrar de Twitch (Respeta mayúsculas y caracteres especiales)
+                    if (tags['display-name']) {
+                        username = tags['display-name'];
+                    }
+
+                    // Extraer el texto real del mensaje después del separador ":" de PRIVMSG
+                    const privmsgIndex = remaining.indexOf('PRIVMSG');
+                    let messageText = '';
+                    if (privmsgIndex !== -1) {
+                        const colonIndex = remaining.indexOf(':', privmsgIndex);
+                        if (colonIndex !== -1) {
+                            messageText = remaining.substring(colonIndex + 1);
+                        }
+                    }
+
+                    const color = tags['color'] || '#a78bfa';
+                    appendChatMessage(username, messageText, color);
+
+                } else if (line.includes(' 366 ')) {
+                    // Código 366 de IRC significa que el ingreso al canal fue exitoso
+                    updateStatus('twitch', 'connected', 'Conectado');
+                    addSystemMessage(`✔ Conectado exitosamente al chat de Twitch: #${currentChannel}`);
+                    document.getElementById('btn-disconnect').disabled = false;
+                    document.getElementById('btn-connect').innerText = "Conectado";
+
+                    const welcome = document.getElementById('welcome-message');
+                    if (welcome) welcome.style.display = 'none';
+                }
+            }
+        }
+
+        function initializeConnections() {
+            const channel = document.getElementById('twitch-channel-input').value.trim().toLowerCase();
+            const token = document.getElementById('streamlabs-token-input').value.trim();
+
+            // Recoger todas las URLs de Blerp ingresadas
+            const blerpInputs = document.querySelectorAll('.blerp-url-item-input');
+            const blerpUrls = Array.from(blerpInputs)
+                .map(input => input.value.trim())
+                .filter(url => url !== '');
+
+            if (!channel) {
+                addSystemMessage("Error: Por favor introduce un canal de Twitch.");
+                return;
+            }
+
+            // Guardar configuración local de forma segura
+            safeStorage.setItem('twitch_channel', channel);
+            safeStorage.setItem('streamlabs_token', token);
+            safeStorage.setItem('blerp_urls', JSON.stringify(blerpUrls));
+
+            // Deshabilitar botones mientras conecta
+            document.getElementById('btn-connect').disabled = true;
+            document.getElementById('btn-connect').innerText = "Conectando...";
+
+            // 1. CONEXIÓN DIRECTA CON WEBSOCKETS A TWITCH CHAT (IRC)
+            if (twitchWS) {
+                twitchWS.close();
+            }
+
+            updateStatus('twitch', 'connecting', 'Conectando...');
+            currentChannel = channel;
+
+            try {
+                // Abrimos conexión limpia al servidor oficial de chat de Twitch sin librerías intermedias
+                twitchWS = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+
+                twitchWS.onopen = () => {
+                    const anonymousNick = `justinfan${Math.floor(10000 + Math.random() * 90000)}`;
+                    twitchWS.send('PASS oauth:anonymous_reader');
+                    twitchWS.send(`NICK ${anonymousNick}`);
+                    twitchWS.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+                    twitchWS.send(`JOIN #${channel}`);
+                };
+
+                twitchWS.onmessage = handleTwitchWSMessage;
+
+                twitchWS.onerror = (err) => {
+                    updateStatus('twitch', 'disconnected', 'Error');
+                    addSystemMessage(`❌ Error de conexión al WebSocket del chat de Twitch.`);
+                    console.error('Twitch WS Error:', err);
+                    resetConnectButtons();
+                };
+
+                twitchWS.onclose = () => {
+                    updateStatus('twitch', 'disconnected', 'Desconectado');
+                    resetConnectButtons();
+                };
+
+            } catch (wsErr) {
+                addSystemMessage(`❌ Error de WebSocket local: ${wsErr.message}`);
+                resetConnectButtons();
+                updateStatus('twitch', 'disconnected', 'Error');
+            }
+
+            // 2. INICIALIZAR WEB SOCKET DE STREAMLABS (Opcional, si hay token)
+            if (token) {
+                if (streamlabsWS) {
+                    streamlabsWS.close();
+                }
+
+                updateStatus('streamlabs', 'connecting', 'Conectando...');
+
+                try {
+                    streamlabsWS = new WebSocket(`https://sockets.streamlabs.com?token=${token}`);
+
+                    streamlabsWS.onopen = () => {
+                        updateStatus('streamlabs', 'connected', 'Conectado');
+                        addSystemMessage("✔ Conectado a los servicios de Alertas de Streamlabs.");
+                    };
+
+                    streamlabsWS.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            if (data.for === 'twitch_alert' || data.type === 'follow' || data.type === 'subscription' || data.type === 'donation') {
+                                const eventType = data.type;
+                                const messageData = data.message[0];
+                                if (messageData) {
+                                    triggerAlert(eventType, messageData.name, messageData.message || '');
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Error interpretando WebSocket de Streamlabs: ", err);
+                        }
+                    };
+
+                    streamlabsWS.onerror = (err) => {
+                        updateStatus('streamlabs', 'disconnected', 'Error de conexión');
+                        console.error("Error en Streamlabs WS:", err);
+                    };
+
+                    streamlabsWS.onclose = () => {
+                        updateStatus('streamlabs', 'disconnected', 'Desconectado');
+                    };
+                } catch (slErr) {
+                    addSystemMessage(`❌ Error iniciando alertas de Streamlabs: ${slErr.message}`);
+                    updateStatus('streamlabs', 'disconnected', 'Error');
+                }
+            } else {
+                updateStatus('streamlabs', 'disconnected', 'Desconectado');
+                addSystemMessage("ℹ No se ingresó token de Streamlabs. Las alertas reales no sonarán, pero puedes simularlas de prueba.");
+            }
+
+            // 3. INTEGRACIÓN CON MÚLTIPLES OVERLAYS DE BLERP (NUEVO)
+            const blerpIframesContainer = document.getElementById('blerp-iframes-container');
+            blerpIframesContainer.innerHTML = ''; // Limpiar iframes anteriores
+
+            if (blerpUrls.length > 0) {
+                updateStatus('blerp', 'connecting', 'Cargando...');
+                blerpIframesContainer.classList.remove('hidden');
+
+                let successCount = 0;
+
+                blerpUrls.forEach((url, index) => {
+                    try {
+                        const iframe = document.createElement('iframe');
+                        iframe.className = "absolute inset-0 w-full h-full border-none pointer-events-none hidden z-30";
+                        iframe.allow = "autoplay";
+                        iframe.src = url;
+
+                        iframe.onload = () => {
+                            successCount++;
+                            // Actualizar estado con la cantidad de overlays que han cargado exitosamente
+                            updateStatus('blerp', 'connected', `${successCount}/${blerpUrls.length} Activo(s)`);
+                        };
+
+                        blerpIframesContainer.appendChild(iframe);
+                    } catch (blerpErr) {
+                        console.error(`Error al cargar el iframe de Blerp #${index + 1}:`, blerpErr);
+                    }
+                });
+
+                // Estado inicial preventivo
+                updateStatus('blerp', 'connected', `${blerpUrls.length} Cargado(s)`);
+                addSystemMessage(`✔ ${blerpUrls.length} overlays de Blerp inicializados en segundo plano.`);
+            } else {
+                blerpIframesContainer.classList.add('hidden');
+                updateStatus('blerp', 'disconnected', 'Desconectado');
+            }
+        }
+
+        function disconnectAll() {
+            if (twitchWS) {
+                twitchWS.close();
+                twitchWS = null;
+            }
+            if (streamlabsWS) {
+                streamlabsWS.close();
+                streamlabsWS = null;
+            }
+
+            // Limpiar y apagar todos los iframes de Blerp
+            const blerpIframesContainer = document.getElementById('blerp-iframes-container');
+            if (blerpIframesContainer) {
+                blerpIframesContainer.innerHTML = '';
+                blerpIframesContainer.classList.add('hidden');
+            }
+
+            updateStatus('twitch', 'disconnected', 'Desconectado');
+            updateStatus('streamlabs', 'disconnected', 'Desconectado');
+            updateStatus('blerp', 'disconnected', 'Desconectado');
+
+            resetConnectButtons();
+            addSystemMessage("🔌 Conexiones cerradas manualmente.");
+        }
+
+        function resetConnectButtons() {
+            document.getElementById('btn-connect').disabled = false;
+            document.getElementById('btn-connect').innerText = "Conectar Todo";
+            document.getElementById('btn-disconnect').disabled = true;
+        }
+
+        function updateStatus(service, state, text) {
+            const dot = document.getElementById(`${service}-status-dot`);
+            const label = document.getElementById(`${service}-status-text`);
+
+            if (state === 'connected') {
+                dot.className = "h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse";
+                label.className = "font-medium text-emerald-400";
+            } else if (state === 'connecting') {
+                dot.className = "h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse";
+                label.className = "font-medium text-amber-400";
+            } else {
+                dot.className = "h-2.5 w-2.5 rounded-full bg-red-500";
+                label.className = "font-medium text-slate-400";
+            }
+            label.innerText = text;
+        }
+
+        function appendChatMessage(username, message, color) {
+            const chatBox = document.getElementById('chat-box');
+
+            // Si el usuario no tiene color en Twitch, le asignamos uno estético por defecto
+            const nameColor = color || '#a78bfa';
+
+            // Contenedor del mensaje individual
+            const messageElement = document.createElement('div');
+            messageElement.className = "flex flex-col space-y-0.5 bg-slate-900/40 backdrop-blur-sm border border-slate-800/40 p-3 rounded-xl transition-all duration-200 hover:bg-slate-900/60 max-w-full inline-block self-start shadow-sm";
+            messageElement.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <span class="font-bold text-sm tracking-tight" style="color: ${nameColor}">${username}</span>
+                </div>
+                <p class="text-slate-200 text-sm leading-relaxed break-all">${escapeHTML(message)}</p>
+            `;
+
+            chatBox.appendChild(messageElement);
+            messageCount++;
+
+            // Limitar a máximo 80 mensajes en pantalla para evitar lag de memoria
+            if (chatBox.children.length > 80) {
+                chatBox.removeChild(chatBox.firstChild);
+            }
+
+            // Actualizar contador
+            document.getElementById('chat-count-badge').innerText = `${messageCount} mensajes`;
+
+            // Auto-scroll suave al último mensaje recibido
+            chatBox.scrollTo({
+                top: chatBox.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Agregar logs del sistema directamente al chat
+        function addSystemMessage(text) {
+            const chatBox = document.getElementById('chat-box');
+            const logEl = document.createElement('div');
+            logEl.className = "text-xs text-slate-400 italic bg-slate-950/40 border border-dashed border-slate-800 p-2.5 rounded-lg w-full";
+            logEl.innerText = text;
+            chatBox.appendChild(logEl);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        let activeAlertTimeout = null;
+
+        function triggerAlert(type, name, customMsg) {
+            const container = document.getElementById('alert-container');
+
+            // Detener alertas de Streamlabs pendientes si se acumulan rápidamente
+            if (activeAlertTimeout) {
+                clearTimeout(activeAlertTimeout);
+                container.innerHTML = '';
+                container.classList.add('hidden');
+            }
+
+            // Reproducir sonido electrónico autogenerado de la web para Streamlabs
+            playAlertChime(type);
+
+            // Variables de personalización visual según tipo de alerta
+            let badgeText = "NUEVO SEGUIDOR";
+            let themeGradient = "from-violet-600 via-indigo-600 to-purple-600";
+            let shadowGlow = "shadow-violet-500/30";
+            let emoji = "💜";
+            let message = customMsg || "¡Gracias por unirte a la comunidad!";
+
+            if (type === 'subscription') {
+                badgeText = "NUEVA SUSCRIPCIÓN";
+                themeGradient = "from-amber-500 via-yellow-600 to-amber-700";
+                shadowGlow = "shadow-amber-500/30";
+                emoji = "👑";
+                message = customMsg || "¡Un suscriptor legendario ha llegado!";
+            } else if (type === 'donation') {
+                badgeText = "NUEVA DONACIÓN";
+                themeGradient = "from-emerald-500 via-teal-600 to-emerald-700";
+                shadowGlow = "shadow-emerald-500/30";
+                emoji = "💵";
+                message = customMsg || "¡Ha aportado al canal con su gran apoyo!";
+            } else if (type === 'bits') {
+                badgeText = "BITEZAZOS";
+                themeGradient = "from-cyan-500 via-blue-600 to-indigo-600";
+                shadowGlow = "shadow-cyan-500/30";
+                emoji = "💎";
+                message = customMsg || "¡Ha enviado bits para animar el stream!";
+            }
+
+            // Plantilla HTML de la Alerta Overlay con estética Premium
+            container.innerHTML = `
+                <div class="bg-slate-950/90 border-2 border-slate-700/50 rounded-2xl p-5 ${shadowGlow} shadow-2xl backdrop-blur-md overflow-hidden relative animate-alert">
+                    <!-- Efecto de gradiente de fondo fino -->
+                    <div class="absolute inset-0 bg-gradient-to-r ${themeGradient} opacity-[0.06] pointer-events-none"></div>
+                    
+                    <div class="flex items-center space-x-4 relative z-10">
+                        <!-- Icono animado -->
+                        <div class="h-16 w-16 rounded-xl bg-gradient-to-br ${themeGradient} flex items-center justify-center text-3xl shrink-0 shadow-inner animate-bounce">
+                            ${emoji}
+                        </div>
+                        
+                        <!-- Contenido Textual -->
+                        <div class="flex-1 overflow-hidden">
+                            <span class="inline-block bg-gradient-to-r ${themeGradient} text-white font-black text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full mb-1">
+                                ${badgeText}
+                            </span>
+                            <h2 class="heading-font text-2xl font-black text-white tracking-tight truncate leading-none">
+                                ${name}
+                            </h2>
+                            <p class="text-slate-300 text-sm font-medium mt-1 truncate">
+                                "${message}"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.classList.remove('hidden');
+
+            // Duración exacta de la animación antes de limpiarse (6 segundos)
+            activeAlertTimeout = setTimeout(() => {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+            }, 6000);
+        }
+
+        function simulateAlert(type) {
+            const names = ["Alex_Gamer", "Lorena92", "StreamKing", "Sofi_Tech", "El_Pro_Original", "CrisStreamer"];
+            const messages = [
+                "¡Sigue así, gran stream!",
+                "¡A por el partner de Twitch! 🚀",
+                "¡Apoyando con todo mi cariño!",
+                "Un saludo enorme a toda la comunidad.",
+                "¡Primer comentario, los quiero!"
+            ];
+
+            const randomName = names[Math.floor(Math.random() * names.length)];
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+
+            triggerAlert(type, randomName, randomMsg);
+        }
+
+        function toggleOverlayMode() {
+            isOverlayMode = !isOverlayMode;
+
+            const settings = document.getElementById('settings-panel');
+            const chatHeader = document.getElementById('chat-header');
+            const exitBtn = document.getElementById('btn-exit-overlay');
+            const body = document.body;
+
+            if (isOverlayMode) {
+                // Modo OBS Overlay (Esconder bordes, panel izquierdo y hacer el chat transparente)
+                settings.classList.add('hidden');
+                chatHeader.classList.add('hidden');
+                exitBtn.classList.remove('hidden');
+                body.className = "h-full bg-transparent overflow-hidden flex flex-col";
+                addSystemMessage("👁 Modo Overlay Activado (Puedes capturar esto de forma transparente en OBS)");
+            } else {
+                // Modo Dashboard Completo con Controles
+                settings.classList.remove('hidden');
+                chatHeader.classList.remove('hidden');
+                exitBtn.classList.add('hidden');
+                body.className = "h-full bg-slate-950 text-slate-100 overflow-hidden flex flex-col";
+            }
+        }
+
+        // Sanitizador de texto para evitar vulnerabilidades de inyección HTML
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g,
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+
+</html>
