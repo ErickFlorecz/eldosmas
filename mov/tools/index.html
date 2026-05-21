@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100 select-none">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IRL Streamer Chat & Alerts Dashboard</title>
+    <!-- Tailwind CSS para diseño moderno y móvil -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;900&display=swap"
+        rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Evitar rebotes de scroll molestos en Safari de iOS */
+            overscroll-behavior-y: contain;
+        }
+
+        .heading-font {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Animación para aparición de alertas */
+        @keyframes alertEntry {
+            0% {
+                transform: translateY(-30px) scale(0.9);
+                opacity: 0;
+            }
+
+            15% {
+                transform: translateY(0) scale(1.03);
+                opacity: 1;
+            }
+
+            17% {
+                transform: translateY(0) scale(1);
+            }
+
+            85% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(-20px) scale(0.95);
+                opacity: 0;
+            }
+        }
+
+        .animate-alert {
+            animation: alertEntry 5s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards;
+        }
+    </style>
+</head>
+
+<body class="h-full overflow-hidden flex flex-col bg-slate-950 text-slate-100" onclick="enableAudioOnUserInteraction()">
+
+    <!-- ============================================== -->
+    <!-- PANTALLA GIGANTE DE DESBLOQUEO DE AUDIO MÓVIL  -->
+    <!-- ============================================== -->
+    <div id="audio-lock-screen"
+        class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center p-6 text-center">
+        <div class="max-w-md space-y-6">
+            <div
+                class="h-24 w-24 rounded-full bg-violet-600/20 border-2 border-violet-500 animate-pulse flex items-center justify-center mx-auto text-4xl">
+                🔊
+            </div>
+            <div class="space-y-2">
+                <h2 class="heading-font text-3xl font-black text-white tracking-tight">MODO IRL MÓVIL</h2>
+                <p class="text-slate-400 text-sm leading-relaxed">
+                    Los teléfonos móviles bloquean el audio automático. Toca el botón de abajo para activar el sonido de
+                    <b>Blerp</b>, alertas y prevenir que el móvil se apague.
+                </p>
+            </div>
+            <button onclick="unlockMobileFeatures()"
+                class="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black py-4 px-6 rounded-2xl shadow-xl shadow-indigo-900/40 text-md tracking-wider uppercase transition-all active:scale-95">
+                🚀 INICIAR Y ACTIVAR SONIDO
+            </button>
+        </div>
+    </div>
+
+    <!-- Barra de Estado Superior en el Teléfono -->
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-violet-500 animate-pulse"></span>
+            <span
+                class="heading-font font-black text-sm tracking-wider uppercase bg-gradient-to-r from-violet-400 to-indigo-300 bg-clip-text text-transparent">IRL
+                Center</span>
+            <!-- CONTADOR CORREGIDO: Añadido al diseño del Header -->
+            <span id="chat-count-badge"
+                class="bg-slate-800 text-slate-400 text-[10px] px-1.5 py-0.5 rounded font-mono font-bold">0 msg</span>
+        </div>
+
+        <!-- Indicadores de estado compactos -->
+        <div class="flex items-center space-x-3 text-[11px] font-bold">
+            <span id="wake-lock-badge"
+                class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Pantalla: Off</span>
+            <span id="twitch-badge"
+                class="px-2 py-0.5 rounded bg-red-950/40 text-red-400 border border-red-900/40">Twitch</span>
+            <span id="blerp-badge"
+                class="px-2 py-0.5 rounded bg-red-950/40 text-red-400 border border-red-900/40">Blerp</span>
+        </div>
+    </header>
+
+    <!-- Contenedor de Vistas (Tabs) -->
+    <main class="flex-1 overflow-hidden relative flex flex-col">
+
+        <!-- CONTENEDOR INTEGRADO DE IFRAMES DE BLERP (Cambiado a pantalla completa y transparente) -->
+        <div id="blerp-iframes-container"
+            class="absolute inset-0 w-full h-full pointer-events-none overflow-hidden z-20 bg-transparent"></div>
+
+        <!-- Alertas Flotantes de Streamlabs centradas -->
+        <div class="absolute inset-x-0 top-4 z-40 flex justify-center px-4 pointer-events-none">
+            <div id="alert-container"
+                class="hidden pointer-events-auto transform transition-all duration-300 max-w-sm w-full"></div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- VISTA 1: CHAT IRL (Pestaña Principal)          -->
+        <!-- ============================================== -->
+        <div id="tab-chat" class="flex-1 flex flex-col h-full overflow-hidden p-4 relative z-10">
+
+            <!-- Controles de pantalla de Chat (Tamaño de letra y Modo) -->
+            <div
+                class="flex items-center justify-between mb-3 shrink-0 bg-slate-900/40 p-2 rounded-xl border border-slate-800/60">
+                <div class="flex items-center space-x-1">
+                    <button onclick="adjustFontSize(-2)"
+                        class="bg-slate-800 active:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-all">-
+                        A</button>
+                    <span id="font-size-label" class="text-xs text-slate-400 px-1 font-mono">16px</span>
+                    <button onclick="adjustFontSize(2)"
+                        class="bg-slate-800 active:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-all">+
+                        A</button>
+                </div>
+
+                <button onclick="switchTab('settings')"
+                    class="text-xs font-semibold text-violet-400 hover:text-violet-300 flex items-center space-x-1">
+                    <span>⚙ Ajustes de Conexión</span>
+                </button>
+            </div>
+
+            <!-- Feed de Mensajes -->
+            <div id="chat-box" class="flex-1 overflow-y-auto space-y-3 pr-1 flex flex-col justify-end">
+                <div class="p-4 rounded-2xl bg-violet-950/20 border border-violet-900/30 text-slate-300 text-sm"
+                    id="welcome-message">
+                    <span class="font-bold text-violet-400">💡 Modo IRL Iniciado con éxito:</span>
+                    <p class="mt-1 text-xs text-slate-400">Pega tus configuraciones en la pestaña de ajustes. Para mayor
+                        comodidad, puedes bloquear la rotación de tu móvil de forma vertical.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- VISTA 2: CONFIGURACIÓN (Pestaña Ocultable)     -->
+        <!-- ============================================== -->
+        <div id="tab-settings" class="hidden flex-1 overflow-y-auto p-6 space-y-5 relative z-10">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 class="heading-font font-bold text-lg text-white">Configuración IRL</h2>
+                <button onclick="switchTab('chat')"
+                    class="bg-violet-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-all active:scale-95">
+                    🗪 Ver Chat
+                </button>
+            </div>
+
+            <!-- Inputs -->
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Canal de
+                        Twitch</label>
+                    <input type="text" id="twitch-channel-input" placeholder="ej. eldosmas, midudev"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Streamlabs
+                        Socket Token</label>
+                    <input type="password" id="streamlabs-token-input" placeholder="Opcional"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                </div>
+
+                <!-- CAMPO MULTIPLE: BLERP OVERLAYS -->
+                <div>
+                    <label
+                        class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex justify-between">
+                        <span>Blerp Overlays (Múltiples)</span>
+                        <button type="button" onclick="addBlerpInput()" class="text-violet-400 font-bold text-xs">+
+                            Añadir</button>
+                    </label>
+                    <div id="blerp-urls-container" class="space-y-2">
+                        <!-- Campos dinámicos -->
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="pt-2 flex gap-3">
+                    <button onclick="initializeConnections()"
+                        class="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3.5 px-4 rounded-xl text-sm transition-all active:scale-95">
+                        Conectar Todo
+                    </button>
+                    <button onclick="disconnectAll()"
+                        class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3.5 px-4 rounded-xl text-sm transition-all active:scale-95">
+                        Apagar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Simulador para pruebas móviles -->
+            <div class="pt-4 border-t border-slate-800">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Simulador de Alertas (Prueba)
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="simulateAlert('follow')"
+                        class="bg-violet-950/40 text-violet-300 text-xs py-2.5 px-3 rounded-lg font-medium">💜
+                        Seguidor</button>
+                    <button onclick="simulateAlert('subscription')"
+                        class="bg-amber-950/40 text-amber-300 text-xs py-2.5 px-3 rounded-lg font-medium">👑
+                        Suscriptor</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Barra de Estado Inferior -->
+    <footer class="bg-slate-900 border-t border-slate-800 px-4 py-2.5 text-center text-[10px] text-slate-500 shrink-0">
+        Diseñado para Streamers IRL • Mantén la pestaña activa en tu teléfono.
+    </footer>
+
+    <!-- ============================================== -->
+    <!-- CODIGO JAVASCRIPT - LOGICA MÓVIL               -->
+    <!-- ============================================== -->
+    <script>
+        let twitchWS = null;
+        let streamlabsWS = null;
+        let currentChannel = '';
+        let messageCount = 0;
+        let currentFontSize = 16;
+        let wakeLock = null;
+        let twitchReconnectInterval = null;
+        let streamlabsReconnectInterval = null;
+        let userInteracted = false; // Declarada de forma global explícita
+
+        // Helper seguro para localStorage para evitar errores de seguridad en entornos sandbox (iframes)
+        const safeStorage = {
+            getItem(key) {
+                try { return localStorage.getItem(key); } catch (e) { return null; }
+            },
+            setItem(key, value) {
+                try { localStorage.setItem(key, value); } catch (e) { }
+            }
+        };
+
+        // Al iniciar la carga de la web
+        window.addEventListener('load', () => {
+            const savedChannel = safeStorage.getItem('twitch_channel');
+            let savedToken = safeStorage.getItem('streamlabs_token');
+            const savedBlerpsJson = safeStorage.getItem('blerp_urls');
+
+            if (savedToken && savedToken.toLowerCase().includes('blerp.com')) {
+                safeStorage.setItem('streamlabs_token', '');
+                savedToken = '';
+            }
+
+            if (savedChannel) document.getElementById('twitch-channel-input').value = savedChannel;
+            if (savedToken) document.getElementById('streamlabs-token-input').value = savedToken;
+
+            if (savedBlerpsJson) {
+                try {
+                    const urls = JSON.parse(savedBlerpsJson);
+                    if (Array.isArray(urls) && urls.length > 0) {
+                        urls.forEach(url => addBlerpInput(url));
+                    } else {
+                        addBlerpInput();
+                    }
+                } catch (e) {
+                    addBlerpInput();
+                }
+            } else {
+                addBlerpInput();
+            }
+
+            // Cargar tamaño de letra previo
+            const savedFontSize = safeStorage.getItem('chat_font_size');
+            if (savedFontSize) {
+                currentFontSize = parseInt(savedFontSize);
+                applyFontSize();
+            }
+        });
+
+        // Activar audio por si el usuario toca la pantalla fuera del botón
+        function enableAudioOnUserInteraction() {
+            if (userInteracted) return;
+            unlockMobileFeatures();
+        }
+
+        // 🚀 DESBLOQUEAR CARACTERÍSTICAS MÓVILES (WakeLock + Audio)
+        async function unlockMobileFeatures() {
+            userInteracted = true;
+
+            // 1. Ocultar la pantalla de bloqueo
+            const lockScreen = document.getElementById('audio-lock-screen');
+            if (lockScreen) lockScreen.style.display = 'none';
+
+            // 2. Intentar prevenir la suspensión de pantalla (Wake Lock API)
+            await requestWakeLock();
+
+            // 3. Inicializar AudioContext para dar permisos al navegador móvil
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    const ctx = new AudioContext();
+                    if (ctx.state === 'suspended') {
+                        await ctx.resume();
+                    }
+                }
+                addSystemMessage("🔊 Permisos de audio e interacción móvil autorizados.");
+            } catch (e) {
+                console.warn("Fallo de inicialización de audio:", e);
+            }
+        }
+
+        // Sistema para mantener la pantalla encendida
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    document.getElementById('wake-lock-badge').className = "px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-900/40";
+                    document.getElementById('wake-lock-badge').innerText = "Pantalla: Despierta";
+                    console.log("[Wake Lock] Pantalla bloqueada contra suspensión con éxito.");
+
+                    // Si la app pierde el foco y vuelve, reactivar WakeLock automáticamente
+                    document.addEventListener('visibilitychange', async () => {
+                        if (wakeLock !== null && document.visibilityState === 'visible') {
+                            wakeLock = await navigator.wakeLock.request('screen');
+                        }
+                    });
+                } else {
+                    document.getElementById('wake-lock-badge').innerText = "Pantalla: No compatible";
+                }
+            } catch (err) {
+                console.warn("[Wake Lock] Falló la API:", err);
+                document.getElementById('wake-lock-badge').innerText = "Pantalla: Error";
+            }
+        }
+
+        // Cambiar pestañas (Ajustes <-> Chat)
+        function switchTab(tabName) {
+            if (tabName === 'settings') {
+                document.getElementById('tab-chat').classList.add('hidden');
+                document.getElementById('tab-settings').classList.remove('hidden');
+            } else {
+                document.getElementById('tab-settings').classList.add('hidden');
+                document.getElementById('tab-chat').classList.remove('hidden');
+            }
+        }
+
+        // Control dinámico de Inputs de Blerp
+        function addBlerpInput(value = '') {
+            const container = document.getElementById('blerp-urls-container');
+            const div = document.createElement('div');
+            div.className = "flex items-center gap-2 blerp-url-row";
+            div.innerHTML = `
+                <input type="text" placeholder="https://obs.blerp.com/pwn/..." value="${escapeHTML(value)}"
+                    class="blerp-url-item-input flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all">
+                <button type="button" onclick="removeBlerpInput(this)" class="text-red-400 p-2 text-sm shrink-0">✕</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeBlerpInput(button) {
+            button.closest('.blerp-url-row').remove();
+        }
+
+        // Control del tamaño de letra
+        function adjustFontSize(step) {
+            currentFontSize = Math.max(12, Math.min(32, currentFontSize + step));
+            safeStorage.setItem('chat_font_size', currentFontSize);
+            applyFontSize();
+        }
+
+        function applyFontSize() {
+            document.getElementById('font-size-label').innerText = `${currentFontSize}px`;
+            const chatBox = document.getElementById('chat-box');
+
+            // Aplicar tamaño a todos los mensajes existentes y futuros
+            const mensajes = chatBox.querySelectorAll('.msg-text');
+            mensajes.forEach(m => {
+                m.style.fontSize = `${currentFontSize}px`;
+            });
+            const usernames = chatBox.querySelectorAll('.msg-username');
+            usernames.forEach(u => {
+                u.style.fontSize = `${currentFontSize - 2}px`;
+            });
+        }
+
+        // Procesamiento en tiempo real de los mensajes crudos del chat de Twitch (IRC Parser)
+        function handleTwitchWSMessage(event) {
+            const rawData = event.data;
+            const lines = rawData.split('\r\n');
+
+            for (let line of lines) {
+                if (!line) continue;
+
+                if (line.startsWith('PING')) {
+                    twitchWS.send('PONG :tmi.twitch.tv');
+                    continue;
+                }
+
+                if (line.includes(' PRIVMSG ')) {
+                    let tags = {};
+                    let remaining = line;
+
+                    if (remaining.startsWith('@')) {
+                        const spaceIndex = remaining.indexOf(' ');
+                        const tagsStr = remaining.substring(1, spaceIndex);
+                        remaining = remaining.substring(spaceIndex + 1);
+
+                        tagsStr.split(';').forEach(pair => {
+                            const [key, val] = pair.split('=');
+                            tags[key] = val ? decodeURIComponent(val) : '';
+                        });
+                    }
+
+                    let username = 'Usuario';
+                    if (remaining.startsWith(':')) {
+                        const spaceIndex = remaining.indexOf(' ');
+                        const hostmask = remaining.substring(1, spaceIndex);
+                        remaining = remaining.substring(spaceIndex + 1);
+
+                        const exclIndex = hostmask.indexOf('!');
+                        if (exclIndex !== -1) {
+                            username = hostmask.substring(0, exclIndex);
+                        }
+                    }
+
+                    if (tags['display-name']) {
+                        username = tags['display-name'];
+                    }
+
+                    const privmsgIndex = remaining.indexOf('PRIVMSG');
+                    let messageText = '';
+                    if (privmsgIndex !== -1) {
+                        const colonIndex = remaining.indexOf(':', privmsgIndex);
+                        if (colonIndex !== -1) {
+                            messageText = remaining.substring(colonIndex + 1);
+                        }
+                    }
+
+                    const color = tags['color'] || '#a78bfa';
+                    appendChatMessage(username, messageText, color);
+
+                } else if (line.includes(' 366 ')) {
+                    updateStatus('twitch', 'connected', 'Twitch: OK');
+                    addSystemMessage(`✔ Chat de Twitch conectado de forma segura.`);
+
+                    const welcome = document.getElementById('welcome-message');
+                    if (welcome) welcome.style.display = 'none';
+                }
+            }
+        }
+
+        // CONECTAR TODO
+        function initializeConnections() {
+            const channel = document.getElementById('twitch-channel-input').value.trim().toLowerCase();
+            let token = document.getElementById('streamlabs-token-input').value.trim();
+
+            const blerpInputs = document.querySelectorAll('.blerp-url-item-input');
+            let blerpUrls = Array.from(blerpInputs)
+                .map(input => input.value.trim())
+                .filter(url => url !== '');
+
+            if (!channel) {
+                addSystemMessage("Error: Por favor introduce un canal de Twitch.");
+                return;
+            }
+
+            // Auto-corrección si ingresaron el Blerp en Streamlabs
+            if (token.toLowerCase().includes('blerp.com')) {
+                if (!blerpUrls.includes(token)) {
+                    blerpUrls.push(token);
+                    addBlerpInput(token);
+                }
+                document.getElementById('streamlabs-token-input').value = '';
+                token = '';
+                addSystemMessage("✨ ¡Enlace de Blerp movido al campo correcto!");
+            }
+
+            safeStorage.setItem('twitch_channel', channel);
+            safeStorage.setItem('streamlabs_token', token);
+            safeStorage.setItem('blerp_urls', JSON.stringify(blerpUrls));
+
+            // Cancelar intervalos de reconexión activos para no duplicarlos
+            clearInterval(twitchReconnectInterval);
+            clearInterval(streamlabsReconnectInterval);
+
+            // 1. TWITCH CONNECTION
+            connectTwitch(channel);
+
+            // 2. STREAMLABS CONNECTION
+            if (token) {
+                connectStreamlabs(token);
+            } else {
+                updateStatus('streamlabs', 'disconnected', 'Streamlabs');
+            }
+
+            // 3. BLERP MULTIPLE CONNECTIONS
+            const blerpIframesContainer = document.getElementById('blerp-iframes-container');
+            blerpIframesContainer.innerHTML = '';
+
+            if (blerpUrls.length > 0) {
+                updateStatus('blerp', 'connecting', 'Cargando Blerp...');
+
+                let successCount = 0;
+                blerpUrls.forEach((url, idx) => {
+                    const iframe = document.createElement('iframe');
+
+                    // CORREGIDO: Ahora el iframe tiene tamaño completo para poder ver los GIFs flotando sobre el chat.
+                    // bg-transparent asegura la transparencia, y pointer-events-none permite tocar el chat debajo.
+                    iframe.className = "absolute inset-0 w-full h-full border-none pointer-events-none bg-transparent";
+
+                    iframe.allow = "autoplay; encrypted-media";
+                    iframe.src = url;
+
+                    iframe.onload = () => {
+                        successCount++;
+                        updateStatus('blerp', 'connected', `Blerp: ${successCount}/${blerpUrls.length}`);
+                        console.log(`[Blerp Debug] Iframe #${idx + 1} cargado y activo a pantalla completa en segundo plano.`);
+                    };
+                    blerpIframesContainer.appendChild(iframe);
+                });
+
+                addSystemMessage(`✔ ${blerpUrls.length} hilos de Blerp abiertos.`);
+            } else {
+                updateStatus('blerp', 'disconnected', 'Blerp: Off');
+            }
+
+            // Volver a la pantalla del Chat automáticamente al conectar
+            switchTab('chat');
+        }
+
+        // Conector de Twitch con reconexión robusta para datos móviles
+        function connectTwitch(channel) {
+            if (twitchWS) twitchWS.close();
+            updateStatus('twitch', 'connecting', 'Twitch...');
+            currentChannel = channel;
+
+            try {
+                twitchWS = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+
+                twitchWS.onopen = () => {
+                    clearInterval(twitchReconnectInterval); // Parar reconexiones si logramos entrar
+                    const anonymousNick = `justinfan${Math.floor(10000 + Math.random() * 90000)}`;
+                    twitchWS.send('PASS oauth:anonymous_reader');
+                    twitchWS.send(`NICK ${anonymousNick}`);
+                    twitchWS.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+                    twitchWS.send(`JOIN #${channel}`);
+                };
+
+                twitchWS.onmessage = handleTwitchWSMessage;
+
+                twitchWS.onerror = (e) => {
+                    console.error("Twitch WS error:", e);
+                };
+
+                twitchWS.onclose = () => {
+                    updateStatus('twitch', 'disconnected', 'Reconectando Twitch...');
+                    // Iniciar bucle de reintento infinito por fluctuación de datos móviles
+                    clearInterval(twitchReconnectInterval);
+                    twitchReconnectInterval = setInterval(() => {
+                        console.log("[Móvil Debug] Red inestable. Reintentando conectar chat de Twitch...");
+                        connectTwitch(channel);
+                    }, 4000);
+                };
+            } catch (err) {
+                console.error("Error WebSocket:", err);
+            }
+        }
+
+        // Conector de Streamlabs con reconexión
+        function connectStreamlabs(token) {
+            if (streamlabsWS) streamlabsWS.close();
+            updateStatus('streamlabs', 'connecting', 'Streamlabs...');
+
+            try {
+                streamlabsWS = new WebSocket(`https://sockets.streamlabs.com?token=${token}`);
+
+                streamlabsWS.onopen = () => {
+                    clearInterval(streamlabsReconnectInterval);
+                    updateStatus('streamlabs', 'connected', 'Streamlabs: OK');
+                };
+
+                streamlabsWS.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.for === 'twitch_alert' || data.type === 'follow' || data.type === 'subscription' || data.type === 'donation') {
+                            const eventType = data.type;
+                            const messageData = data.message[0];
+                            if (messageData) {
+                                triggerAlert(eventType, messageData.name, messageData.message || '');
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Error parseando alerta:", err);
+                    }
+                };
+
+                streamlabsWS.onclose = () => {
+                    updateStatus('streamlabs', 'disconnected', 'Reconectando Streamlabs...');
+                    clearInterval(streamlabsReconnectInterval);
+                    streamlabsReconnectInterval = setInterval(() => {
+                        connectStreamlabs(token);
+                    }, 5000);
+                };
+            } catch (e) {
+                console.error("Error Streamlabs:", e);
+            }
+        }
+
+        // Desconectar todos los servicios
+        function disconnectAll() {
+            clearInterval(twitchReconnectInterval);
+            clearInterval(streamlabsReconnectInterval);
+            if (twitchWS) twitchWS.close();
+            if (streamlabsWS) streamlabsWS.close();
+
+            document.getElementById('blerp-iframes-container').innerHTML = '';
+
+            updateStatus('twitch', 'disconnected', 'Twitch: Off');
+            updateStatus('streamlabs', 'disconnected', 'Streamlabs: Off');
+            updateStatus('blerp', 'disconnected', 'Blerp: Off');
+            addSystemMessage("🔌 Desconectado de todos los servicios.");
+        }
+
+        function updateStatus(service, state, text) {
+            const badge = document.getElementById(`${service}-badge`);
+            if (!badge) return;
+
+            if (state === 'connected') {
+                badge.className = "px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-900/40";
+            } else if (state === 'connecting') {
+                badge.className = "px-2 py-0.5 rounded bg-amber-950/40 text-amber-400 border border-amber-900/40 animate-pulse";
+            } else {
+                badge.className = "px-2 py-0.5 rounded bg-red-950/40 text-red-400 border border-red-900/40";
+            }
+            badge.innerText = text;
+        }
+
+        function appendChatMessage(username, message, color) {
+            const chatBox = document.getElementById('chat-box');
+            const nameColor = color || '#a78bfa';
+
+            const messageElement = document.createElement('div');
+            messageElement.className = "bg-slate-900/50 border border-slate-800/40 p-3 rounded-2xl max-w-full inline-block self-start shadow-sm";
+            messageElement.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <span class="msg-username font-extrabold tracking-tight" style="color: ${nameColor}; font-size: ${currentFontSize - 2}px">${username}</span>
+                </div>
+                <p class="msg-text text-white leading-relaxed break-all" style="font-size: ${currentFontSize}px">${escapeHTML(message)}</p>
+            `;
+
+            chatBox.appendChild(messageElement);
+            messageCount++;
+
+            // Eliminar antiguos en el móvil para evitar ralentizar la memoria del teléfono
+            if (chatBox.children.length > 50) {
+                chatBox.removeChild(chatBox.firstChild);
+            }
+
+            // CORREGIDO: Ya no dará error ya que el badge de chat-count-badge fue insertado de vuelta en el Header
+            const countBadge = document.getElementById('chat-count-badge');
+            if (countBadge) {
+                countBadge.innerText = `${messageCount} msg`;
+            }
+
+            // Auto scroll inmediato al fondo
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const chatBox = document.getElementById('chat-box');
+            const logEl = document.createElement('div');
+            logEl.className = "text-xs text-slate-400 italic bg-slate-900/20 border border-slate-800/50 p-2.5 rounded-xl w-full";
+            logEl.innerText = text;
+            chatBox.appendChild(logEl);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        let activeAlertTimeout = null;
+
+        function triggerAlert(type, name, customMsg) {
+            const container = document.getElementById('alert-container');
+            if (activeAlertTimeout) {
+                clearTimeout(activeAlertTimeout);
+                container.innerHTML = '';
+                container.classList.add('hidden');
+            }
+
+            playAlertChime(type);
+
+            let badgeText = "SEGUIDOR";
+            let themeGradient = "from-violet-600 to-indigo-600";
+            let emoji = "💜";
+            let message = customMsg || "¡Gracias por el follow!";
+
+            if (type === 'subscription') {
+                badgeText = "SUSCRIPTOR";
+                themeGradient = "from-amber-500 to-amber-700";
+                emoji = "👑";
+                message = customMsg || "¡Gracias por suscribirte!";
+            }
+
+            container.innerHTML = `
+                <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 shadow-2xl relative overflow-hidden animate-alert">
+                    <div class="absolute inset-0 bg-gradient-to-r ${themeGradient} opacity-[0.08]"></div>
+                    <div class="flex items-center space-x-3 relative z-10">
+                        <div class="h-12 w-12 rounded-xl bg-gradient-to-br ${themeGradient} flex items-center justify-center text-xl shrink-0">
+                            ${emoji}
+                        </div>
+                        <div class="flex-1 overflow-hidden">
+                            <span class="text-[10px] font-black tracking-widest text-slate-400 uppercase">${badgeText}</span>
+                            <h2 class="heading-font text-lg font-black text-white truncate leading-none">${name}</h2>
+                            <p class="text-slate-300 text-xs truncate mt-0.5">"${message}"</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.classList.remove('hidden');
+
+            activeAlertTimeout = setTimeout(() => {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+            }, 5000);
+        }
+
+        function simulateAlert(type) {
+            triggerAlert(type, "Usuario_Simulado", "¡Esto es un canje de alerta de prueba!");
+        }
+
+        // Sanitizador de texto para evitar vulnerabilidades de inyección HTML
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[tag] || tag));
+        }
+    </script>
+</body>
+
+</html>
